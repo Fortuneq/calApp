@@ -37,15 +37,6 @@ docker --version
 docker compose --version
 
 ###############################################################################
-# Шаг 5: Создание директории проекта
-###############################################################################
-
-log_info "Создание директории проекта..."
- mkdir -p /opt/nutrition_bot
- chown $USER:$USER /opt/nutrition_bot
-cd /opt/nutrition_bot
-
-###############################################################################
 # Шаг 6: Проверка .env файла
 ###############################################################################
 
@@ -149,7 +140,7 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/nutrition_bot
+WorkingDirectory=/nutrition_bot
 ExecStart=/usr/local/bin/docker compose up -d
 ExecStop=/usr/local/bin/docker compose down
 User=root
@@ -167,25 +158,25 @@ log_info "Systemd service создан и активирован"
 ###############################################################################
 
 log_info "Создание скрипта бэкапа..."
-cat > /opt/nutrition_bot/backup.sh << 'EOF'
+cat > /nutrition_bot/backup.sh << 'EOF'
 #!/bin/bash
-BACKUP_DIR="/opt/nutrition_bot/backups"
+BACKUP_DIR="/nutrition_bot/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-docker compose -f /opt/nutrition_bot/docker compose.yml exec -T db pg_dump -U nutrition_user nutrition_bot | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
+docker compose -f /nutrition_bot/docker compose.yml exec -T db pg_dump -U nutrition_user nutrition_bot | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
 echo "Backup created: $BACKUP_DIR/backup_$DATE.sql.gz"
 # Удаление бэкапов старше 7 дней
 find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +7 -delete
 EOF
 
-chmod +x /opt/nutrition_bot/backup.sh
-log_info "Скрипт бэкапа создан: /opt/nutrition_bot/backup.sh"
+chmod +x /nutrition_bot/backup.sh
+log_info "Скрипт бэкапа создан: /nutrition_bot/backup.sh"
 
 ###############################################################################
 # Шаг 17: Настройка cron для бэкапов
 ###############################################################################
 
 log_info "Настройка автоматических бэкапов (cron)..."
-(crontab -l 2>/dev/null; echo "0 3 * * * /opt/nutrition_bot/backup.sh >> /opt/nutrition_bot/logs/backup.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "0 3 * * * /nutrition_bot/backup.sh >> /nutrition_bot/logs/backup.log 2>&1") | crontab -
 log_info "Автоматические бэкапы настроены (ежедневно в 3:00)"
 
 ###############################################################################
@@ -193,27 +184,27 @@ log_info "Автоматические бэкапы настроены (ежед
 ###############################################################################
 
 log_info "Создание health check скрипта..."
-cat > /opt/nutrition_bot/health_check.sh << 'EOF'
+cat > /nutrition_bot/health_check.sh << 'EOF'
 #!/bin/bash
 echo "=== Nutrition Bot Health Check ==="
 echo ""
 echo "1. Docker Containers:"
-docker compose -f /opt/nutrition_bot/docker compose.yml ps
+docker compose -f /nutrition_bot/docker compose.yml ps
 echo ""
 echo "2. Recent Errors:"
-docker compose -f /opt/nutrition_bot/docker compose.yml logs --tail=20 bot | grep -i error || echo "No errors"
+docker compose -f /nutrition_bot/docker compose.yml logs --tail=20 bot | grep -i error || echo "No errors"
 echo ""
 echo "3. Database:"
-docker compose -f /opt/nutrition_bot/docker compose.yml exec -T db psql -U nutrition_user -d nutrition_bot -c "SELECT COUNT(*) FROM meals;" 2>/dev/null || echo "DB Error"
+docker compose -f /nutrition_bot/docker compose.yml exec -T db psql -U nutrition_user -d nutrition_bot -c "SELECT COUNT(*) FROM meals;" 2>/dev/null || echo "DB Error"
 echo ""
 echo "4. Disk Usage:"
-df -h /opt/nutrition_bot
+df -h /nutrition_bot
 echo ""
 echo "Health check completed."
 EOF
 
-chmod +x /opt/nutrition_bot/health_check.sh
-log_info "Health check скрипт создан: /opt/nutrition_bot/health_check.sh"
+chmod +x /nutrition_bot/health_check.sh
+log_info "Health check скрипт создан: /nutrition_bot/health_check.sh"
 
 ###############################################################################
 # Завершение

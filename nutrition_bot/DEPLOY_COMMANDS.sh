@@ -31,64 +31,10 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-###############################################################################
-# Шаг 1: Проверка прав
-###############################################################################
-
-log_info "Проверка прав пользователя..."
-if [[ $EUID -ne 0 ]] && ! groups | grep -q docker; then
-   log_warn "Скрипт не запущен от root и пользователь не в группе docker"
-   log_warn "Некоторые команды могут потребовать "
-fi
-
-###############################################################################
-# Шаг 2: Обновление системы
-###############################################################################
-
-log_info "Обновление системы..."
- apt update &&  apt upgrade -y
- apt install -y curl git nano htop
-
-###############################################################################
-# Шаг 3: Установка Docker
-###############################################################################
-
-if ! command -v docker &> /dev/null; then
-    log_info "Установка Docker..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-     sh get-docker.sh
-     usermod -aG docker $USER
-    rm get-docker.sh
-    log_info "Docker установлен"
-else
-    log_info "Docker уже установлен"
-fi
-
-###############################################################################
-# Шаг 4: Установка Docker Compose
-###############################################################################
-
-if ! command -v docker-compose &> /dev/null; then
-    log_info "Установка Docker Compose..."
-     curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-     chmod +x /usr/local/bin/docker-compose
-    log_info "Docker Compose установлен"
-else
-    log_info "Docker Compose уже установлен"
-fi
 
 # Проверка версий
 docker --version
-docker-compose --version
-
-###############################################################################
-# Шаг 5: Создание директории проекта
-###############################################################################
-
-log_info "Создание директории проекта..."
- mkdir -p /opt/nutrition_bot
- chown $USER:$USER /opt/nutrition_bot
-cd /opt/nutrition_bot
+docker compose --version
 
 ###############################################################################
 # Шаг 6: Проверка .env файла
@@ -118,14 +64,14 @@ else
 fi
 
 ###############################################################################
-# Шаг 7: Проверка docker-compose.yml
+# Шаг 7: Проверка docker compose.yml
 ###############################################################################
 
-if [ ! -f docker-compose.yml ]; then
-    log_error "docker-compose.yml не найден!"
+if [ ! -f docker compose.yml ]; then
+    log_error "docker compose.yml не найден!"
     exit 1
 else
-    log_info "docker-compose.yml найден"
+    log_info "docker compose.yml найден"
 fi
 
 ###############################################################################
@@ -142,14 +88,14 @@ chmod 755 logs backups
 ###############################################################################
 
 log_info "Сборка Docker образов (это может занять несколько минут)..."
-docker-compose build
+docker compose build
 
 ###############################################################################
 # Шаг 10: Запуск контейнеров
 ###############################################################################
 
 log_info "Запуск контейнеров..."
-docker-compose up -d
+docker compose up -d
 
 ###############################################################################
 # Шаг 11: Ожидание запуска
@@ -163,14 +109,14 @@ sleep 10
 ###############################################################################
 
 log_info "Проверка статуса контейнеров..."
-docker-compose ps
+docker compose ps
 
 ###############################################################################
 # Шаг 13: Проверка логов
 ###############################################################################
 
 log_info "Проверка логов бота..."
-docker-compose logs --tail=20 bot
+docker compose logs --tail=20 bot
 
 ###############################################################################
 # Шаг 14: Проверка базы данных
@@ -178,7 +124,7 @@ docker-compose logs --tail=20 bot
 
 log_info "Проверка базы данных..."
 sleep 5
-docker-compose exec -T db psql -U nutrition_user -d nutrition_bot -c "\dt" || log_warn "Не удалось подключиться к БД"
+docker compose exec -T db psql -U nutrition_user -d nutrition_bot -c "\dt" || log_warn "Не удалось подключиться к БД"
 
 ###############################################################################
 # Шаг 15: Создание systemd service
@@ -195,8 +141,8 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/nutrition_bot
-ExecStart=/usr/local/bin/docker-compose up -d
-ExecStop=/usr/local/bin/docker-compose down
+ExecStart=/usr/local/bin/docker compose up -d
+ExecStop=/usr/local/bin/docker compose down
 User=root
 
 [Install]
@@ -216,7 +162,7 @@ cat > /opt/nutrition_bot/backup.sh << 'EOF'
 #!/bin/bash
 BACKUP_DIR="/opt/nutrition_bot/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-docker-compose -f /opt/nutrition_bot/docker-compose.yml exec -T db pg_dump -U nutrition_user nutrition_bot | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
+docker compose -f /opt/nutrition_bot/docker compose.yml exec -T db pg_dump -U nutrition_user nutrition_bot | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
 echo "Backup created: $BACKUP_DIR/backup_$DATE.sql.gz"
 # Удаление бэкапов старше 7 дней
 find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +7 -delete
@@ -243,13 +189,13 @@ cat > /opt/nutrition_bot/health_check.sh << 'EOF'
 echo "=== Nutrition Bot Health Check ==="
 echo ""
 echo "1. Docker Containers:"
-docker-compose -f /opt/nutrition_bot/docker-compose.yml ps
+docker compose -f /opt/nutrition_bot/docker compose.yml ps
 echo ""
 echo "2. Recent Errors:"
-docker-compose -f /opt/nutrition_bot/docker-compose.yml logs --tail=20 bot | grep -i error || echo "No errors"
+docker compose -f /opt/nutrition_bot/docker compose.yml logs --tail=20 bot | grep -i error || echo "No errors"
 echo ""
 echo "3. Database:"
-docker-compose -f /opt/nutrition_bot/docker-compose.yml exec -T db psql -U nutrition_user -d nutrition_bot -c "SELECT COUNT(*) FROM meals;" 2>/dev/null || echo "DB Error"
+docker compose -f /opt/nutrition_bot/docker compose.yml exec -T db psql -U nutrition_user -d nutrition_bot -c "SELECT COUNT(*) FROM meals;" 2>/dev/null || echo "DB Error"
 echo ""
 echo "4. Disk Usage:"
 df -h /opt/nutrition_bot
@@ -271,10 +217,10 @@ echo "=========================================="
 echo ""
 echo "Полезные команды:"
 echo ""
-echo "  Просмотр логов:       docker-compose logs -f bot"
-echo "  Перезапуск:           docker-compose restart"
-echo "  Остановка:            docker-compose stop"
-echo "  Статус:               docker-compose ps"
+echo "  Просмотр логов:       docker compose logs -f bot"
+echo "  Перезапуск:           docker compose restart"
+echo "  Остановка:            docker compose stop"
+echo "  Статус:               docker compose ps"
 echo "  Проверка здоровья:    ./health_check.sh"
 echo "  Бэкап БД:             ./backup.sh"
 echo ""
@@ -284,4 +230,4 @@ echo "  2. Отправьте /start"
 echo "  3. Попробуйте отправить фото еды"
 echo ""
 log_info "Логи бота в реальном времени:"
-docker-compose logs -f bot
+docker compose logs -f bot

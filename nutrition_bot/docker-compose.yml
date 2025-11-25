@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: nutrition_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - nutrition_network
+
+  db:
+    image: postgres:16-alpine
+    container_name: nutrition_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-nutrition_bot}
+      POSTGRES_USER: ${DB_USER:-nutrition_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-nutrition_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - nutrition_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-nutrition_user} -d ${DB_NAME:-nutrition_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  nutrition_network:
+    driver: bridge

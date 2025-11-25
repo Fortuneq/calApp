@@ -38,7 +38,7 @@ log_error() {
 log_info "Проверка прав пользователя..."
 if [[ $EUID -ne 0 ]] && ! groups | grep -q docker; then
    log_warn "Скрипт не запущен от root и пользователь не в группе docker"
-   log_warn "Некоторые команды могут потребовать sudo"
+   log_warn "Некоторые команды могут потребовать "
 fi
 
 ###############################################################################
@@ -46,8 +46,8 @@ fi
 ###############################################################################
 
 log_info "Обновление системы..."
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git nano htop
+ apt update &&  apt upgrade -y
+ apt install -y curl git nano htop
 
 ###############################################################################
 # Шаг 3: Установка Docker
@@ -56,8 +56,8 @@ sudo apt install -y curl git nano htop
 if ! command -v docker &> /dev/null; then
     log_info "Установка Docker..."
     curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
+     sh get-docker.sh
+     usermod -aG docker $USER
     rm get-docker.sh
     log_info "Docker установлен"
 else
@@ -70,8 +70,8 @@ fi
 
 if ! command -v docker-compose &> /dev/null; then
     log_info "Установка Docker Compose..."
-    sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
+     curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+     chmod +x /usr/local/bin/docker-compose
     log_info "Docker Compose установлен"
 else
     log_info "Docker Compose уже установлен"
@@ -86,8 +86,8 @@ docker-compose --version
 ###############################################################################
 
 log_info "Создание директории проекта..."
-sudo mkdir -p /opt/nutrition_bot
-sudo chown $USER:$USER /opt/nutrition_bot
+ mkdir -p /opt/nutrition_bot
+ chown $USER:$USER /opt/nutrition_bot
 cd /opt/nutrition_bot
 
 ###############################################################################
@@ -185,7 +185,7 @@ docker-compose exec -T db psql -U nutrition_user -d nutrition_bot -c "\dt" || lo
 ###############################################################################
 
 log_info "Создание systemd service для автозапуска..."
-sudo tee /etc/systemd/system/nutrition-bot.service > /dev/null << 'EOF'
+ tee /etc/systemd/system/nutrition-bot.service > /dev/null << 'EOF'
 [Unit]
 Description=Nutrition Bot Docker Compose
 After=docker.service
@@ -203,8 +203,8 @@ User=root
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl daemon-reload
-sudo systemctl enable nutrition-bot.service
+ systemctl daemon-reload
+ systemctl enable nutrition-bot.service
 log_info "Systemd service создан и активирован"
 
 ###############################################################################
